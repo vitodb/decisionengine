@@ -21,9 +21,9 @@ pipeline {
                         echo "clone decisionengine code from ${DE_REPO}"
                         sh "git clone ${DE_REPO}"
                         echo "prepare docker image ${pylintStageDockerImage}"
-                        sh "pwd; docker build -t ${pylintStageDockerImage} -f decisionengine/.github/actions/pylint-in-sl7-docker/Dockerfile.jenkins decisionengine/.github/actions/pylint-in-sl7-docker/"
+                        sh "docker build -t ${pylintStageDockerImage} -f decisionengine/.github/actions/pylint-in-sl7-docker/Dockerfile.jenkins decisionengine/.github/actions/pylint-in-sl7-docker/"
                         echo "Run ${STAGE_NAME} tests"
-                        sh "pwd; docker run --rm -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE} ${pylintStageDockerImage}"
+                        sh "docker run --rm -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE} ${pylintStageDockerImage}"
                     }
                     post {
                         always {
@@ -51,9 +51,9 @@ pipeline {
                         echo "clone decisionengine code from ${DE_REPO}"
                         sh "git clone ${DE_REPO}"
                         echo "prepare docker image ${unit_testsStageDockerImage}"
-                        sh "pwd; docker build -t ${unit_testsStageDockerImage} -f decisionengine/.github/actions/unittest-in-sl7-docker/Dockerfile.jenkins decisionengine/.github/actions/unittest-in-sl7-docker"
+                        sh "docker build -t ${unit_testsStageDockerImage} -f decisionengine/.github/actions/unittest-in-sl7-docker/Dockerfile.jenkins decisionengine/.github/actions/unittest-in-sl7-docker"
                         echo "Run ${STAGE_NAME} tests"
-                        sh "pwd; docker run --rm -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE} ${unit_testsStageDockerImage}"
+                        sh "docker run --rm -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE} ${unit_testsStageDockerImage}"
                     }
                     post {
                         always {
