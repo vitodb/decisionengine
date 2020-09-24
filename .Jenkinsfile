@@ -77,6 +77,12 @@ pipeline {
                                 git checkout merge${GITHUB_PR_NUMBER}
                                 cd ..
                             fi
+                            if [[ ${BRANCH} != "master" ]]; then
+                                cd decisionengine
+                                echo "checkout ${BRANCH} branch"
+                                git checkout ${BRANCH}
+                                cd ..
+                            fi
                         '''
                         echo "prepare docker image ${unit_testsStageDockerImage}"
                         sh "docker build -t ${unit_testsStageDockerImage} -f decisionengine/.github/actions/unittest-in-sl7-docker/Dockerfile.jenkins decisionengine/.github/actions/unittest-in-sl7-docker"
