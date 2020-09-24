@@ -38,6 +38,12 @@ pipeline {
                                 git checkout merge${GITHUB_PR_NUMBER}
                                 cd ..
                             fi
+                            if [[ ${BRANCH} != "master" ]]; then
+                                cd decisionengine
+                                echo "checkout ${BRANCH} branch"
+                                git checkout ${BRANCH}
+                                cd ..
+                            fi
                         '''
                         echo "prepare docker image ${pylintStageDockerImage}"
                         sh "docker build -t ${pylintStageDockerImage} -f decisionengine/.github/actions/pylint-in-sl7-docker/Dockerfile.jenkins decisionengine/.github/actions/pylint-in-sl7-docker/"
@@ -120,6 +126,12 @@ pipeline {
                                 cd decisionengine
                                 git fetch origin pull/${GITHUB_PR_NUMBER}/merge:merge${GITHUB_PR_NUMBER}
                                 git checkout merge${GITHUB_PR_NUMBER}
+                                cd ..
+                            fi
+                            if [[ ${BRANCH} != "master" ]]; then
+                                cd decisionengine
+                                echo "checkout ${BRANCH} branch"
+                                git checkout ${BRANCH}
                                 cd ..
                             fi
                         '''
