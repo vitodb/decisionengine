@@ -87,13 +87,7 @@ pipeline {
                         echo "prepare docker image ${unit_testsStageDockerImage}"
                         sh "docker build -t ${unit_testsStageDockerImage} -f decisionengine/.github/actions/unittest-in-sl7-docker/Dockerfile.jenkins decisionengine/.github/actions/unittest-in-sl7-docker"
                         echo "Run ${STAGE_NAME} tests"
-                        sh '''
-                            if [[ -z ${PYTEST_TIMEOUT} ]]; then
-                                PYTEST_TIMEOUT=0
-                            fi
-                            echo PYTEST_TIMEOUT ${PYTEST_TIMEOUT}
-                            docker run --rm --env PYTEST_TIMEOUT=${PYTEST_TIMEOUT} -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE} ${unit_testsStageDockerImage}
-                        '''
+                        sh "[[ -z ${PYTEST_TIMEOUT} ]] && PYTEST_TIMEOUT=0 ; docker run --rm --env PYTEST_TIMEOUT=${PYTEST_TIMEOUT} -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE} ${unit_testsStageDockerImage}"
                     }
                     post {
                         always {
