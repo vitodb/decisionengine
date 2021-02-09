@@ -1,5 +1,5 @@
 # for buildtime
-pybind11
+pybind11-global
 
 # for runtime
 jsonnet
