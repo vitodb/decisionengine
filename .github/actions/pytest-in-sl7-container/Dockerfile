@@ -19,6 +19,5 @@ RUN chown decisionengine:decisionengine /var/log/decisionengine /etc/decisioneng
 
 # Become container user
 USER decisionengine
-WORKDIR /home/decisionengine
 
 ENTRYPOINT ["/entrypoint.sh"]
