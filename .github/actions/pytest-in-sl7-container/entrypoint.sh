@@ -3,17 +3,14 @@ CMD=${1:- -m pytest}
 LOGFILE=${2:- pytest.log}
 
 echo "GITHUB_WORKSPACE: ${GITHUB_WORKSPACE}"
-sleep 5
+echo "RUNNER_WORKSPACE: ${RUNNER_WORKSPACE}"
+sleep 2
 pwd
-sleep 5
+sleep 2
 ls -lh
-sleep 5
+sleep 2
 ls -lh ..
-sleep 5
-ls -lh ../..
-sleep 5
 
-cd decisionengine
 python3 setup.py bdist_wheel
 python3 -m pip install -r requirements/requirements-runtime.txt
 python3 -m pip install -r requirements/requirements-develop.txt
