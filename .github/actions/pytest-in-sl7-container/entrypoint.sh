@@ -2,6 +2,7 @@
 CMD=${1:- -m pytest}
 LOGFILE=${2:- pytest.log}
 
+id
 echo "GITHUB_WORKSPACE: ${GITHUB_WORKSPACE}"
 echo "RUNNER_WORKSPACE: ${RUNNER_WORKSPACE}"
 sleep 2

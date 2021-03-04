@@ -3,8 +3,8 @@ FROM ${BASEIMAGE}
 COPY entrypoint.sh /entrypoint.sh
 
 # Identity information for the decisionengine user
-ARG UID=500
-ARG GID=500
+ARG UID=1001
+ARG GID=116
 
 # make PIP happy
 ARG PATH="~/.local/bin:$PATH"
