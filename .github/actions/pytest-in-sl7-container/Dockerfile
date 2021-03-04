@@ -1,4 +1,5 @@
-FROM hepcloud/decision-engine-ci
+ARG BASEIMAGE=hepcloud/decision-engine-ci
+FROM ${BASEIMAGE}
 COPY entrypoint.sh /entrypoint.sh
 
 # Identity information for the decisionengine user
@@ -20,11 +21,4 @@ RUN chown decisionengine:decisionengine /var/log/decisionengine /etc/decisioneng
 USER decisionengine
 WORKDIR /home/decisionengine
 
-# get code and modules we need
-RUN git clone https://github.com/HEPCloud/decisionengine.git /home/decisionengine/decisionengine/
-RUN python3 -m pip install --upgrade pip --user
-RUN python3 -m pip install --upgrade setuptools wheel setuptools-scm[toml] --user
-RUN cd decisionengine ; python3 setup.py develop --user
-
-USER decisionengine
 ENTRYPOINT ["/entrypoint.sh"]

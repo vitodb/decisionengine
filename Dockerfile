@@ -12,8 +12,8 @@ RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.n
   && yum -y clean all
 
 # set PATH for build and runtime
-ENV PATH="~/.local/bin:/usr/pgsql-${PG_VERSION}/bin:$PATH"
-ARG PATH="~/.local/bin:/usr/pgsql-${PG_VERSION}/bin:$PATH"
+ENV PATH="/usr/pgsql-${PG_VERSION}/bin:$PATH"
+ARG PATH="/usr/pgsql-${PG_VERSION}/bin:$PATH"
 # Install postgresql-${PG_VERSION}
 RUN yum install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm \
   && yum -y clean all
@@ -30,9 +30,12 @@ RUN yum -y install \
   rpm-build \
   && yum -y clean all
 
+# Install decisionengine requirements
 RUN git clone https://github.com/HEPCloud/decisionengine.git /tmp/decisionengine.git
 RUN python3 -m pip install --upgrade pip
 RUN python3 -m pip install --upgrade setuptools wheel setuptools-scm[toml]
-RUN cd /tmp/decisionengine.git ; python3 setup.py develop ; python3 -m pip install decisionengine[develop] ; python3 setup.py develop --uninstall
+
+RUN cd /tmp/decisionengine.git ; python3 setup.py bdist_wheel ; python3 -m pip install dist/*.whl ; \
+    python3 -m pip install decisionengine[develop] ; python3 -m pip uninstall -y decisionengine
 
 ENTRYPOINT ["/bin/bash"]
