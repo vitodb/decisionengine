@@ -1,4 +1,4 @@
-ARG BASEIMAGE=hepcloud/decision-engine-ci
+ARG BASEIMAGE=vitodb/decision-engine-ci:test
 FROM ${BASEIMAGE}
 COPY entrypoint.sh /entrypoint.sh
 

@@ -3,10 +3,15 @@ CMD=${1:- -m pytest}
 LOGFILE=${2:- pytest.log}
 
 echo "GITHUB_WORKSPACE: ${GITHUB_WORKSPACE}"
+sleep 5
 pwd
+sleep 5
 ls -lh
+sleep 5
 ls -lh ..
+sleep 5
 ls -lh ../..
+sleep 5
 
 cd decisionengine
 python3 setup.py bdist_wheel
