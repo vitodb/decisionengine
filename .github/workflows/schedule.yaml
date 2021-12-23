@@ -4,6 +4,13 @@ on:
   schedule:
     # * is a special character in YAML so you have to quote this string
     - cron:  '55 20 * * *'
+  
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'branch ref'
+        required: true
+        default: 'master'
 
 jobs:
   rpmbuild_el7:
