@@ -3,7 +3,7 @@ name: Run CI
 on:
   schedule:
     # * is a special character in YAML so you have to quote this string
-    - cron:  '48 14 * * *'
+    - cron:  '55 14 * * *'
 
 jobs:
   rpmbuild_el7:
