@@ -14,6 +14,9 @@ on:
       id:
         description: 'run identifier'
         required: false
+      branch:
+        description: 'branch name'
+        required: true
 
 jobs:
   rpmbuild_el7:
@@ -34,9 +37,9 @@ jobs:
       - name: Archive rpm
         uses: actions/upload-artifact@v2
         with:
-          name: rpms-${{github.event.ref}}
+          name: rpms-${{github.event.inputs.branch}}
           path: dist/*.rpm
           if-no-files-found: error
 
-      - name: ${{github.event.inputs.id}}
-        run: echo run identifier ${{ inputs.id }} 
+      - name: ${{github.event.inputs.id}}-${{github.event.inputs.branch}}
+        run: echo run identifier ${{ inputs.id }} on branch ${{github.event.inputs.branch}}
