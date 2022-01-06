@@ -1,8 +1,13 @@
+# SPDX-FileCopyrightText: 2017 Fermi Research Alliance, LLC
+# SPDX-License-Identifier: Apache-2.0
+
 import pandas as pd
-from decisionengine.framework.logicengine.LogicEngine import LogicEngine
 import pytest
 
-@pytest.fixture
+from decisionengine.framework.logicengine.LogicEngine import LogicEngine
+
+
+@pytest.fixture()
 def myengine():
     facts = {"f1": "val > 10"}
     rules = {}
@@ -11,17 +16,14 @@ def myengine():
     rules["r3"] = {"expression": "f3", "facts": ["f4"]}
     rules["r4"] = {"expression": "f4", "actions": ["a4"], "false_actions": ["fa4"]}
 
-    return LogicEngine({"facts": facts, "rules": rules})
+    yield LogicEngine({"facts": facts, "rules": rules, "channel_name": "test"})
+
 
 def test_rule_that_fires(myengine):
     db = {"val": 20}
     ef = myengine.evaluate_facts(db)
     assert ef["f1"] is True
-    result = myengine.evaluate(db)
-    assert isinstance(result, dict)
-    assert len(result) == 2
-    actions = result["actions"]
-    newfacts = result["newfacts"]
+    actions, newfacts = myengine.evaluate(db)
     assert isinstance(actions, dict)
     assert isinstance(newfacts, pd.DataFrame)
     assert len(actions) == 4
@@ -36,15 +38,12 @@ def test_rule_that_fires(myengine):
     assert newfacts_d["r2"] == ["f3", True]
     assert newfacts_d["r3"] == ["f4", True]
 
+
 def test_rule_that_does_not_fire(myengine):
     db = {"val": 5}
     ef = myengine.evaluate_facts(db)
     assert ef["f1"] is False
-    result = myengine.evaluate(db)
-    assert isinstance(result, dict)
-    assert len(result) == 2
-    actions = result["actions"]
-    newfacts = result["newfacts"]
+    actions, newfacts = myengine.evaluate(db)
     assert isinstance(actions, dict)
     assert isinstance(newfacts, pd.DataFrame)
     assert len(actions) == 4

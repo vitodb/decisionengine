@@ -1,15 +1,18 @@
+# SPDX-FileCopyrightText: 2017 Fermi Research Alliance, LLC
+# SPDX-License-Identifier: Apache-2.0
+
+import pandas as pd
+
 from decisionengine.framework.modules import Publisher
 
-CONSUMES = ["bar"]
 
-
+@Publisher.consumes(bar=pd.DataFrame)
 class PublisherNOP(Publisher.Publisher):
-
     def __init__(self, config):
         super().__init__(config)
 
-    def publish(self, data_block=None):
-        df_in = data_block[CONSUMES[0]] # noqa
+    def publish(self, data_block):
+        self.bar(data_block)
 
-    def consumes(self, name_list=None):
-        return CONSUMES
+
+Publisher.describe(PublisherNOP)

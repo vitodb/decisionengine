@@ -1,17 +1,22 @@
+# SPDX-FileCopyrightText: 2017 Fermi Research Alliance, LLC
+# SPDX-License-Identifier: Apache-2.0
+
 import logging
 import multiprocessing
 import os
 import threading
 
+import structlog
+
+import decisionengine.framework.modules.de_logger as de_logger
+import decisionengine.framework.modules.logging_configDict as logconf
 import decisionengine.framework.taskmanager.ProcessingState as ProcessingState
 
-FORMATTER = logging.Formatter(
-    "%(asctime)s - %(name)s - %(module)s - %(process)d - %(threadName)s - %(levelname)s - %(message)s",
-    datefmt="%Y-%m-%dT%H:%M:%S%z")
+MB = 1000000
 
 
 class Worker(multiprocessing.Process):
-    '''
+    """
     Class that encapsulates a channel's task manager as a separate process.
 
     This class' run function is called whenever the process is
@@ -23,55 +28,78 @@ class Worker(multiprocessing.Process):
     To determine the exit code of this process, use the
     Worker.exitcode value, provided by the multiprocessing.Process
     base class.
-    '''
+    """
 
     def __init__(self, task_manager, logger_config):
-        super().__init__()
+        super().__init__(name=f"DEWorker-{task_manager.name}")
         self.task_manager = task_manager
-        self.task_manager_id = task_manager.id
         self.logger_config = logger_config
 
-    def wait_until(self, state):
-        return self.task_manager.state.wait_until(state)
+    def wait_until(self, state, timeout=None):
+        return self.task_manager.state.wait_until(state, timeout)
 
-    def wait_while(self, state):
-        return self.task_manager.state.wait_while(state)
+    def wait_while(self, state, timeout=None):
+        return self.task_manager.state.wait_while(state, timeout)
 
     def get_state_name(self):
         return self.task_manager.get_state_name()
 
-    def run(self):
-        logger = logging.getLogger()
-        logger.setLevel(logging.WARNING)
+    def get_produces(self):
+        return self.task_manager.get_produces()
+
+    def get_consumes(self):
+        return self.task_manager.get_consumes()
+
+    def setup_logger(self):
+        myname = self.task_manager.name
+        myfilename = os.path.join(os.path.dirname(self.logger_config["log_file"]), myname + ".log")
+        start_q_logger = self.logger_config.get("start_q_logger", "True")
+
+        self.logger = structlog.getLogger(logconf.CHANNELLOGGERNAME)
+
+        # setting a default value here. value from config file is set in call
+        # self.task_manager.set_loglevel_value after logger configuration is completed
+        logging.getLogger(logconf.CHANNELLOGGERNAME).setLevel(logging.DEBUG)
+
         logger_rotate_by = self.logger_config.get("file_rotate_by", "size")
-
         if logger_rotate_by == "size":
-            file_handler = logging.handlers.RotatingFileHandler(os.path.join(
-                                                                os.path.dirname(
-                                                                    self.logger_config["log_file"]),
-                                                                self.task_manager.name + ".log"),
-                                                                maxBytes=self.logger_config.get("max_file_size",
-                                                                200 * 1000000),
-                                                                backupCount=self.logger_config.get("max_backup_count",
-                                                                6))
-        else:
-            file_handler = logging.handlers.TimedRotatingFileHandler(os.path.join(
-                                                                     os.path.dirname(
-                                                                         self.logger_config["log_file"]),
-                                                                     self.task_manager.name + ".log"),
-                                                                     when=self.logger_config.get("rotation_time_unit", 'D'),
-                                                                     interval=self.logger_config.get("rotation_time_interval", '1'))
+            handler = logging.handlers.RotatingFileHandler(
+                filename=myfilename,
+                maxBytes=self.logger_config.get("max_file_size", 200 * MB),
+                backupCount=self.logger_config.get("max_backup_count", 6),
+            )
 
-        file_handler.setFormatter(FORMATTER)
-        logger.addHandler(file_handler)
+        elif logger_rotate_by == "time":
+            handler = logging.handlers.TimedRotatingFileHandler(
+                filename=myfilename,
+                when=self.logger_config.get("rotation_time_unit", "D"),
+                interval=self.logger_config.get("rotation_time_interval", 1),
+                backupCount=self.logger_config.get("max_backup_count", 6),
+            )
+        else:
+            self.task_manager.state.set(ProcessingState.State.ERROR)
+            raise ValueError(f"Incorrect 'logger_rotate_by':'{logger_rotate_by}:'")
+
+        handler.setLevel(logging.DEBUG)
+        handler.setFormatter(logging.Formatter(logconf.userformat))
+
+        self.logger.addHandler(handler)
+
+        if start_q_logger == "True":
+            self.logger.addHandler(de_logger.get_queue_logger().structlog_q_handler)
+
+        self.logger = self.logger.bind(module=__name__.split(".")[-1], channel=myname)
 
         channel_log_level = self.logger_config.get("global_channel_log_level", "WARNING")
         self.task_manager.set_loglevel_value(channel_log_level)
+
+    def run(self):
+        self.setup_logger()
         self.task_manager.run()
 
 
 class Workers:
-    '''
+    """
     This class manages and provides access to the task-manager workers.
 
     The intention is that the decision engine never directly interacts with the
@@ -91,7 +119,7 @@ class Workers:
 
     Calling a blocking method while using the protected context
     manager (i.e. workers.access()) will likely result in a deadlock.
-    '''
+    """
 
     def __init__(self):
         self._workers = {}
@@ -99,7 +127,7 @@ class Workers:
 
     def _update_channel_states(self):
         with self._lock:
-            for channel, process in self._workers.items():
+            for process in self._workers.values():
                 if process.is_alive():
                     continue
                 if process.task_manager.state.inactive():

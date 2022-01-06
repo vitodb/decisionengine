@@ -1,16 +1,33 @@
-import logging
-import pandas
+# SPDX-FileCopyrightText: 2017 Fermi Research Alliance, LLC
+# SPDX-License-Identifier: Apache-2.0
+
 from itertools import chain
 
-from decisionengine.framework.logicengine.RuleEngine import RuleEngine
+import pandas
+
 from decisionengine.framework.logicengine.BooleanExpression import BooleanExpression
+from decisionengine.framework.logicengine.RuleEngine import RuleEngine
 from decisionengine.framework.modules.Module import Module
+
+
+def passthrough_configuration(publisher_names):
+    """Assembles logic-engine configuration to unconditionally execute all publishers."""
+    if len(publisher_names) == 0:
+        return {}
+    return {
+        "logic_engine": {
+            "module": "decisionengine.framework.logicengine.LogicEngine",
+            "parameters": {
+                "facts": {},
+                "rules": {"r1": {"expression": "True", "actions": list(publisher_names)}},
+            },
+        }
+    }
 
 
 class LogicEngine(Module):
     def __init__(self, cfg):
         super().__init__(cfg)
-        self.logger = logging.getLogger()
         self.facts = {name: BooleanExpression(expr) for name, expr in cfg["facts"].items()}
         self.rule_engine = RuleEngine(cfg["facts"].keys(), cfg["rules"])
 
@@ -66,7 +83,7 @@ class LogicEngine(Module):
         # Process rules
         self.logger.info("LE: calling execute")
         actions, newfacts = self.rule_engine.execute(evaluated_facts)
-        return {"actions": actions, "newfacts": self._create_facts_dataframe(newfacts)}
+        return (actions, self._create_facts_dataframe(newfacts))
 
     def _create_facts_dataframe(self, newfacts):
         """
@@ -96,9 +113,5 @@ class LogicEngine(Module):
             rule_name += [rule] * len(facts)
             fact_name += facts.keys()
             fact_value += facts.values()
-        facts = {
-            'rule_name': rule_name,
-            'fact_name': fact_name,
-            'fact_value': fact_value
-        }
+        facts = {"rule_name": rule_name, "fact_name": fact_name, "fact_value": fact_value}
         return pandas.DataFrame(facts)

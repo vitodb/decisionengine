@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2017 Fermi Research Alliance, LLC
+# SPDX-License-Identifier: Apache-2.0
+
 # on dockerhub hepcloud/decision-engine-ci
 FROM sl:7
 LABEL description="hepcloud/decision-engine"
@@ -29,10 +32,13 @@ RUN yum -y install postgresql$(echo -n ${PG_VERSION} | tr -d '.')-server \
                    postgresql$(echo -n ${PG_VERSION} | tr -d '.') \
  && yum -y clean all
 
+# Install redis 5 server and tools
+RUN yum install -y rh-redis5
+
 # Install utils
 RUN yum -y install \
-    python3 python3-devel python3-pip python3-setuptools python3-wheel \
-    gcc gcc-c++ make \
+    python3 python3-pip python3-setuptools python3-wheel \
+    gcc gcc-c++ make python3-devel swig openssl-devel \
     git \
     rpm-build \
  && yum -y clean all
@@ -43,9 +49,9 @@ RUN python3 -m pip install --upgrade --prefix=/usr pip ; \
 
 # Install decisionengine requirements (only)
 #  do as one layer to simplify merges
-RUN git clone https://github.com/HEPCloud/decisionengine.git /tmp/decisionengine.git ; \
+RUN su - adm -s /bin/bash -c "git clone https://github.com/HEPCloud/decisionengine.git /tmp/decisionengine.git"; \
     cd /tmp/decisionengine.git ; \
-    python3 setup.py bdist_wheel ; \
+    su adm -s /bin/bash -c "cd /tmp/decisionengine.git ; python3 setup.py bdist_wheel" ; \
     python3 -m pip install --prefix=/usr dist/*.whl ; \
     python3 -m pip install --prefix=/usr decisionengine[develop] ; \
     python3 -m pip uninstall -y decisionengine ; \

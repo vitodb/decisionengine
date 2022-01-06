@@ -1,15 +1,24 @@
-from decisionengine.framework.modules import Module
+# SPDX-FileCopyrightText: 2017 Fermi Research Alliance, LLC
+# SPDX-License-Identifier: Apache-2.0
+
+from decisionengine.framework.modules import describe
+from decisionengine.framework.modules.describe import Parameter, supports_config
+from decisionengine.framework.modules.Module import consumes, Module
+
+__all__ = ["Parameter", "Publisher", "consumes", "describe", "supports_config"]
 
 
-class Publisher(Module.Module):
+describe = describe.main_wrapper
+
+
+class Publisher(Module):
+    _consumes = {}
+
     def __init__(self, set_of_parameters):
         super().__init__(set_of_parameters)
 
-    def consumes(self, name_list):
-        print("Called Publisher.consumes")
-
     def publish(self, data_block=None):
-        print("Called Publisher.publish")
+        pass
 
     def shutdown(self):
-        print("Called Publisher.shutdown")
+        pass

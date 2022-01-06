@@ -1,12 +1,22 @@
-from decisionengine.framework.logicengine.LogicEngine import LogicEngine
-import pytest
-import pandas as pd
+# SPDX-FileCopyrightText: 2017 Fermi Research Alliance, LLC
+# SPDX-License-Identifier: Apache-2.0
 
-@pytest.fixture
+import pandas as pd
+import pytest
+
+from decisionengine.framework.logicengine.LogicEngine import LogicEngine
+
+
+@pytest.fixture()
 def myengine():
     facts = {"f1": "val > 10"}
     rules = {"r1": {"expression": "f1", "actions": ["a1", "a2"]}}
-    return LogicEngine({"facts": facts, "rules": rules})
+    yield LogicEngine({"facts": facts, "rules": rules, "channel_name": "test"})
+
+
+def test_error_on_bad_names(myengine):
+    with pytest.raises(NameError, match=r"is not defined"):
+        myengine.evaluate_facts(dict())
 
 
 def test_rule_that_fires(myengine):
@@ -14,22 +24,14 @@ def test_rule_that_fires(myengine):
     ef = myengine.evaluate_facts(db)
     assert ef["f1"] is True
 
-    result = myengine.evaluate(db)
-    assert isinstance(result, dict)
-    assert len(result) == 2
-    actions = result["actions"]
-    newfacts = result["newfacts"]
+    actions, newfacts = myengine.evaluate(db)
     assert isinstance(actions, dict)
     assert isinstance(newfacts, pd.DataFrame)
     assert actions["r1"] == ["a1", "a2"]
     assert len(actions) == 1
     assert newfacts.empty
 
-    result = myengine.evaluate(db)
-    assert isinstance(result, dict)
-    assert len(result) == 2
-    actions = result["actions"]
-    newfacts = result["newfacts"]
+    actions, newfacts = myengine.evaluate(db)
     assert isinstance(actions, dict)
     assert isinstance(newfacts, pd.DataFrame)
     assert actions["r1"] == ["a1", "a2"]
@@ -45,22 +47,14 @@ def test_rule_that_does_not_fire(myengine):
     ef = myengine.evaluate_facts(db)
     assert ef["f1"] is False
 
-    result = myengine.evaluate(db)
-    assert isinstance(result, dict)
-    assert len(result) == 2
-    actions = result["actions"]
-    newfacts = result["newfacts"]
+    actions, newfacts = myengine.evaluate(db)
     assert isinstance(actions, dict)
     assert isinstance(newfacts, pd.DataFrame)
     assert len(actions) == 1
     assert actions["r1"] == []
     assert newfacts.empty
 
-    result = myengine.evaluate(db)
-    assert isinstance(result, dict)
-    assert len(result) == 2
-    actions = result["actions"]
-    newfacts = result["newfacts"]
+    ations, newfacts = myengine.evaluate(db)
     assert isinstance(actions, dict)
     assert isinstance(newfacts, pd.DataFrame)
     assert len(actions) == 1

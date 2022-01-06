@@ -1,24 +1,26 @@
+# SPDX-FileCopyrightText: 2017 Fermi Research Alliance, LLC
+# SPDX-License-Identifier: Apache-2.0
+
 ---
 name: Run CI
 on:
   push:
     branches:
-      - '**'          # matches every branch
-      - '!gh-pages'   # excludes gh-pages branch
+      - "**" # matches every branch
+      - "!gh-pages" # excludes gh-pages branch
   pull_request:
     branches:
       - master
+      - 1.7
 
 jobs:
-  test:
+  pytest:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     strategy:
       matrix:
         python-version:
-          - '3.6'
-          - '3.9'
-          - 'pypy-3.6'
+          - "3.6"
+          - "3.10"
 
     name: Python ${{ matrix.python-version }} unit tests
     steps:
@@ -33,19 +35,15 @@ jobs:
           python-version: ${{ matrix.python-version }}
           architecture: x64
 
-      - name: Merge requirements files into one
-        run: cat requirements/*.txt | sort -u | grep -v requirements-runtime.txt > requirements.txt
-
       - name: Cache pip
         uses: actions/cache@v2
         with:
           # This path is specific to Ubuntu
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}-${{ matrix.python-version }}
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}
           restore-keys: |
-            ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}-
+            ${{ runner.os }}-pip-${{ matrix.python-version }}-
             ${{ runner.os }}-pip-
-            ${{ runner.os }}-
 
       - name: Note Python version/implementation/cache
         run: |
@@ -54,20 +52,34 @@ jobs:
           python3 -c 'import platform; print(platform.python_implementation())'
           python3 -m pip cache dir
 
-      - name: Install dependencies
+      - name: Ensure pip/setuptools is up to date
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install --upgrade wheel
+          python3 -m pip install --upgrade wheel setuptools
+
+      - name: Install dependencies (runtime)
+        run: |
+          python3 -m pip install -e . --user
+          python3 -m pip list --user
+
+      - name: Install dependencies (unit tests)
+        run: |
           python3 -m pip install --upgrade pytest
-          python3 -m pip install -r requirements.txt
+          python3 -m pip install -e .[develop] --user
+          python3 -m pip list --user
 
       - name: Ensure version.py exists
         run: python3 setup.py bdist_wheel
 
+      - name: Start Redis Server
+        uses: supercharge/redis-github-action@1.1.0
+
       - name: Run Unit Tests on Python ${{ matrix.python-version }}
+        timeout-minutes: 35
         env:
           PYTEST_TIMEOUT: 90
           PYTHONPATH: ${{ github.workspace }}/src
+        shell: 'script -q -e -c "bash --noprofile --norc -eo pipefail {0}"'
         run: |
           pytest --cov-report term --cov-report xml --cov=decisionengine --no-cov-on-fail
 
@@ -79,7 +91,7 @@ jobs:
   build_doc:
     name: Generate Documentation
     runs-on: ubuntu-latest
-    needs: test
+    needs: pytest
     steps:
       - name: checkout code tree
         uses: actions/checkout@v2
@@ -88,23 +100,19 @@ jobs:
 
       - uses: actions/setup-python@v2
         with:
-          python-version: '3.9'
-          architecture: 'x64'
-
-      - name: Merge requirements files into one
-        run: cat requirements/*.txt | sort -u | grep -v requirements-runtime.txt > requirements.txt
+          python-version: "3.9"
+          architecture: "x64"
 
       - name: Cache pip
         uses: actions/cache@v2
         with:
           # This path is specific to Ubuntu
           path: ~/.cache/pip
-          # Look to see if there is a cache hit for the corresponding requirements file
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}-3.9
+          # Look to see if there is a cache hit for the corresponding file
+          key: ${{ runner.os }}-pip-${{ hashFiles('setup.py') }}-3.9
           restore-keys: |
-            ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}-
+            ${{ runner.os }}-pip-${{ hashFiles('setup.py') }}-
             ${{ runner.os }}-pip-
-            ${{ runner.os }}-
 
       - name: Note Python version/implementation/cache
         run: |
@@ -116,16 +124,16 @@ jobs:
       - name: Install dependencies
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install --upgrade wheel
+          python3 -m pip install --upgrade wheel setuptools
           python3 -m pip install --upgrade pytest
-          python3 -m pip install -r requirements.txt
+          python3 -m pip install -e . --user
+          python3 -m pip install -e .[develop] --user
 
       - name: Install sphinx expected fonts within the container
         run: |
           sudo apt-get update || true
           sudo apt-get install -y latexmk texlive-latex-recommended texlive-latex-extra texlive-fonts-recommended
-          sudo pip install -U pip
-          sudo pip3 install sphinx
+          python3 -m pip install sphinx sphinx_rtd_theme --user
 
       - name: Ensure version.py exists
         run: python3 setup.py bdist_wheel
@@ -137,63 +145,10 @@ jobs:
           cd doc
           make rst html latexpdf
 
-  run_flake8:
-    name: Run pytest-flake8 against code tree
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-      - name: checkout code tree
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-python@v2
-        with:
-          python-version: '3.9'
-          architecture: 'x64'
-
-      - name: Merge requirements files into one
-        run: cat requirements/*.txt | sort -u | grep -v requirements-runtime.txt > requirements.txt
-
-      - name: Cache pip
-        uses: actions/cache@v2
-        with:
-          # This path is specific to Ubuntu
-          path: ~/.cache/pip
-          # Look to see if there is a cache hit for the corresponding requirements file
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}-3.9
-          restore-keys: |
-            ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}-
-            ${{ runner.os }}-pip-
-            ${{ runner.os }}-
-
-      - name: Note Python version/implementation
-        run: |
-          which python3
-          python3 -c 'import sys; print(sys.version)'
-          python3 -c 'import platform; print(platform.python_implementation())'
-          python3 -m pip cache dir
-
-      - name: Install dependencies
-        run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install --upgrade wheel
-          python3 -m pip install --upgrade pytest
-          python3 -m pip install -r requirements.txt
-
-      - name: Ensure version.py exists
-        run: python3 setup.py bdist_wheel
-
-      - name: Run Flake8 Tests on Python ${{ matrix.python-version }}
-        env:
-          PYTHONPATH: ${{ github.workspace }}/src
-        run: |
-          pytest -m flake8 --flake8
-
   rpmbuild_el7:
     name: Build an EL7 rpm
     runs-on: ubuntu-latest
-    needs: test
+    needs: pytest
     steps:
       - name: checkout code tree
         uses: actions/checkout@v2
@@ -203,8 +158,8 @@ jobs:
       - name: Run the build in a container (SL7/HEPCloud-CI)
         uses: ./.github/actions/python-command-in-sl7-container
         with:
-          python-command: 'setup.py bdist_rpm'
-          logfile: 'rpmbuild.log'
+          python-command: "setup.py bdist_rpm"
+          logfile: "rpmbuild.log"
 
       - name: Archive rpm
         uses: actions/upload-artifact@v2

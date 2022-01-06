@@ -1,133 +1,209 @@
-'''pytest defaults'''
-import random
-import string
+# SPDX-FileCopyrightText: 2017 Fermi Research Alliance, LLC
+# SPDX-License-Identifier: Apache-2.0
+
+"""pytest defaults"""
+import gc
+import logging
+import os
+import tempfile
 import threading
 
-import psycopg2
 import pytest
-from pytest_postgresql.factories import DatabaseJanitor
 
 import decisionengine.framework.engine.de_client as de_client
+import decisionengine.framework.engine.de_query_tool as de_query_tool
 
-from decisionengine.framework.dataspace.datasources.tests.fixtures import DE_DB_HOST, DE_DB_USER, DE_DB_PASS, DE_DB_NAME, DE_SCHEMA, PG_PROG, DE_DB
-from decisionengine.framework.engine.DecisionEngine import _get_de_conf_manager, _create_de_server, parse_program_options
+from decisionengine.framework.dataspace.tests.fixtures import (
+    DATABASES_TO_TEST,
+    PG_DE_DB_WITHOUT_SCHEMA,
+    PG_PROG,
+    SQLALCHEMY_PG_WITH_SCHEMA,
+    SQLALCHEMY_TEMPFILE_SQLITE,
+)
+from decisionengine.framework.engine.DecisionEngine import (
+    _create_de_server,
+    _get_de_conf_manager,
+    _start_de_server,
+    parse_program_options,
+)
 from decisionengine.framework.util.sockets import get_random_port
-from decisionengine.framework.taskmanager.TaskManager import State
 
-__all__ = ['DE_DB_HOST', 'DE_DB_USER', 'DE_DB_PASS', 'DE_DB_NAME', 'DE_SCHEMA',
-           'PG_PROG', 'DE_DB', 'DE_HOST', 'DEServer']
+__all__ = [
+    "DATABASES_TO_TEST",
+    "PG_DE_DB_WITHOUT_SCHEMA",
+    "SQLALCHEMY_PG_WITH_SCHEMA",
+    "SQLALCHEMY_TEMPFILE_SQLITE",
+    "PG_PROG",
+    "DEServer",
+]
 
 # Not all test hosts are IPv6, generally IPv4 works fine some test
 # hosts use IPv6 for localhost by default, even when not configured!
 # Python XML RPC Socket server is IPv4 only right now.
-DE_HOST = '127.0.0.1'
+DE_HOST = "127.0.0.1"
 
 
 class DETestWorker(threading.Thread):
-    '''A DE Server process with our test config'''
+    """A DE Server process with our test config"""
 
-    def __init__(self, conf_path, channel_conf_path, server_address, db_info, conf_override=None, channel_conf_override=None):
-        '''format of args should match what you set in conf_mamanger'''
-        super().__init__()
+    def __init__(
+        self,
+        conf_path,
+        channel_conf_path,
+        server_address,
+        datasource,
+        conf_override=None,
+        channel_conf_override=None,
+    ):
+        """format of args should match what you set in conf_mamanger"""
+        super().__init__(name="DETestWorker")
         self.server_address = server_address
+        self.conf_path = conf_path
+        self.channel_conf_path = channel_conf_path
 
-        global_config, channel_config_loader = _get_de_conf_manager(conf_path, channel_conf_path, parse_program_options([]))
+        self.global_config, self.channel_config_loader = _get_de_conf_manager(
+            conf_path, channel_conf_path, parse_program_options([])
+        )
 
         # Override global configuration for testing
-        global_config['shutdown_timeout'] = 1
-        global_config['server_address'] = self.server_address
-        global_config['dataspace']['datasource']['config'] = db_info
+        self.global_config["shutdown_timeout"] = 1
+        self.global_config["server_address"] = self.server_address
+        self.global_config["dataspace"]["datasource"] = datasource
+        self.global_config["no_webserver"] = True
 
-        self.de_server = _create_de_server(global_config, channel_config_loader)
-        self.reaper_start_delay_seconds = global_config['dataspace'].get('reaper_start_delay_seconds', 1818)
+        self.de_server = _create_de_server(self.global_config, self.channel_config_loader)
+        self.stdout_at_setup = None
 
     def run(self):
-        self.de_server.reaper_start(delay=self.reaper_start_delay_seconds)
-        self.de_server.start_channels()
-        self.de_server.serve_forever()
+        _start_de_server(self.de_server)
 
     def de_client_run_cli(self, *args):
-        '''
+        """
         Run the DE Client CLI with these args
         The DE Server host/port are automatically set for you
-        '''
-        return de_client.main(["--host", self.server_address[0],
-                               "--port", str(self.server_address[1]),
-                               *args])
+        """
+        return de_client.main(
+            [
+                "--host",
+                self.server_address[0],
+                "--port",
+                str(self.server_address[1]),
+                *args,
+            ]
+        )
+
+    def de_query_tool_run_cli(self, *args):
+        """
+        Run the DE Query Tool CLI with these args.
+        The DE Server host/port are automatically set for you.
+
+        Returns:
+            str: Query result
+        """
+        return de_query_tool.main(
+            [
+                "--host",
+                self.server_address[0],
+                "--port",
+                str(self.server_address[1]),
+                *args,
+            ]
+        )
 
 
 # pylint: disable=invalid-name
-def DEServer(conf_path=None, conf_override=None,
-             channel_conf_path=None, channel_conf_override=None,
-             host=DE_HOST, port=None,
-             pg_prog_name='PG_PROG', pg_db_conn_name='DE_DB'):
-    '''A DE Server using a private database'''
+def DEServer(
+    conf_path=None,
+    conf_override=None,
+    channel_conf_path=None,
+    channel_conf_override=None,
+    host=DE_HOST,
+    port=None,
+    make_conf_dirs_if_missing=False,
+):
+    """A DE Server using a private database"""
 
-    @pytest.fixture(scope='function')
-    def de_server_factory(request):
-        '''
-        actually make the fixture
-        '''
+    @pytest.fixture(params=DATABASES_TO_TEST)
+    def de_server_factory(tmp_path, request, capsys):
+        """
+        This parameterized fixture will mock up various datasources.
+
+        Add datasource objects to DATABASES_TO_TEST once they've got
+        our basic schema loaded.  Pytest should take it from there and
+        automatically run it throught all the below tests
+        """
+        logger = logging.getLogger()
         if port:
             host_port = (host, port)
         else:
             host_port = (host, get_random_port())
 
-        db_info = {}
+        conn_fixture = request.getfixturevalue(request.param)
 
-        proc_fixture = request.getfixturevalue(pg_prog_name)
-        db_info['host'] = proc_fixture.host
-        db_info['port'] = proc_fixture.port
-        db_info['user'] = proc_fixture.user
-        db_info['password'] = proc_fixture.password
+        datasource = {}
 
-        # used to find the version of postgres
-        conn_fixture = request.getfixturevalue(pg_db_conn_name)
+        # SQL Alchemy
+        datasource["config"] = {}
+        datasource["module"] = "decisionengine.framework.dataspace.datasources.sqlalchemy_ds"
+        datasource["name"] = "SQLAlchemyDS"
+        datasource["config"]["url"] = conn_fixture["url"]
+        datasource["config"]["echo"] = True
 
-        # pseudo random database name for testing
-        db_info['database'] = DE_DB_NAME + '_test_' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+        logger.debug(f"DE Fixture has datasource config: {datasource}")
 
-        # Due to the multi-threaded/connection pooled nature
-        # of the DE Server, it is cleaner to build out an
-        # unscoped database.  The one created by the `DE_DB`
-        # fixture is private to a single socket/connection
-        # and cannot be shared cleanly.
-        #
-        # And even if we could share it, then we wouldn't
-        # be testing the production data path or pooling
-        # with those tricks
+        # make it easy to give each fixture a unique private config path
+        # for more flexible startup options
+        with tempfile.TemporaryDirectory(dir=tmp_path) as tmppath:
+            nonlocal conf_path
+            nonlocal channel_conf_path
+            if conf_path is None:
+                conf_path = os.path.join(tmppath, "conf.d")
+            if channel_conf_path is None:
+                channel_conf_path = os.path.join(tmppath, "channel.conf.d")
 
-        # DatabaseJanitor will create and drop the tablespace for us
-        with DatabaseJanitor(user=db_info['user'], password=db_info['password'],
-                             host=db_info['host'], port=db_info['port'],
-                             db_name=db_info['database'],
-                             version=conn_fixture.server_version):
-            # if you swap this for the `DE_DB` fixture, it will
-            # block and changes will not be visable to the connection
-            # fired up within the DE Server thread.
-            with psycopg2.connect(**db_info) as connection:
-                for filename in DE_SCHEMA:  # noqa: F405
-                    with open(filename, 'r') as _fd, \
-                         connection.cursor() as cur:
-                        cur.execute(_fd.read())
+            if make_conf_dirs_if_missing and not os.path.exists(conf_path):
+                logger.debug(f"DE Fixture making {conf_path}")
+                os.makedirs(conf_path)
+            if make_conf_dirs_if_missing and not os.path.exists(channel_conf_path):
+                logger.debug(f"DE Fixture making {channel_conf_path}")
+                os.makedirs(channel_conf_path)
 
-            server_proc = DETestWorker(conf_path, channel_conf_path, host_port, db_info, conf_override, channel_conf_override)
+            server_proc = DETestWorker(
+                conf_path,
+                channel_conf_path,
+                host_port,
+                datasource,
+                conf_override,
+                channel_conf_override,
+            )
+            logger.debug("Starting DE Fixture")
             server_proc.start()
-            # The following block only works if there are
-            # active workers; if it is called before any workers
-            # exist, then it will return and not block as requested.
-            # so long as your config contains at least one worker,
-            # this will work as you'd expect.
-            server_proc.de_server.block_while(State.BOOT)
+
+            # Ensure the channels have started
+            logger.debug(f"DE Fixture: Wait on startup state: is_set={server_proc.de_server.startup_complete.is_set()}")
+            server_proc.de_server.startup_complete.wait()
+            server_proc.stdout_at_setup = capsys.readouterr().out
+
+            logger.debug(
+                f"DE Fixture: Done waiting for startup state: is_set={server_proc.de_server.startup_complete.is_set()}"
+            )
 
             if not server_proc.is_alive():
-                raise RuntimeError('Could not start PrivateDEServer fixture')
+                raise RuntimeError("Could not start PrivateDEServer fixture")
 
             yield server_proc
 
-            if server_proc.is_alive():
-                server_proc.de_server.rpc_stop()
+        logger.debug("DE Fixture: beginning cleanup")
 
-            server_proc.join()
+        # does not error out even if the server is stopped
+        # so this should be safe to call under all conditions
+        logger.debug("DE Fixture: running rpc_stop()")
+        server_proc.de_server.rpc_stop()
+
+        logger.debug("DE Fixture: waiting for server_proc.join()")
+        server_proc.join()
+
+        del server_proc
+        gc.collect()
 
     return de_server_factory

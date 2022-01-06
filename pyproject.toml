@@ -1,17 +1,36 @@
 [build-system]
-requires = ["setuptools>=42", "wheel", "setuptools_scm[toml]>=3.4"]
+requires = ["setuptools>=51.2", "wheel>=0.36.2", "setuptools_scm>=6.3.1"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
 write_to = "src/decisionengine/framework/version.py"
-version_scheme = "post-release"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-l -v --durations=0"
+# -n is used by pytest-xdist. "pytest: error: unrecognized arguments: -n" means that the plugin is missing. Install the development dependencies
+addopts = "-l -v --durations=30 --durations-min=0.05 --strict-config --strict-markers --showlocals -n 2"
 log_level = "debug"
 testpaths = "src/decisionengine"
+required_plugins = ["pytest-timeout>=1.4.2", "pytest-postgresql >= 3.0.0"]
+timeout = 90
 flake8-max-line-length = "120"
-flake8-ignore = "E501 E303 E302 E261 E265 W503 W504"
+flake8-ignore = "E501 E303 E302 E261 E265 E203 W503 W504"
 flake8-show-source = "True"
 flake8-statistics = "True"
+
+[tool.black]
+line-length = 120
+target-version = ['py36']
+
+[tool.isort]
+src_paths = ["doc", "src"]
+py_version = 36
+profile = "black"
+line_length = 120
+combine_star = "True"
+float_to_top = "True"
+order_by_type = "True"
+dedup_headings = "True"
+known_first_party = ["decisionengine"]
+lines_between_types = 1
+force_alphabetical_sort_within_sections = "True"

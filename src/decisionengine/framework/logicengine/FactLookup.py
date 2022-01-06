@@ -1,14 +1,18 @@
-from decisionengine.framework.logicengine.Rule import Rule
+# SPDX-FileCopyrightText: 2017 Fermi Research Alliance, LLC
+# SPDX-License-Identifier: Apache-2.0
+
+import structlog
 
 from toposort import toposort_flatten
 
-import logging
+from decisionengine.framework.logicengine.Rule import Rule
+from decisionengine.framework.modules.logging_configDict import DELOGGER_CHANNEL_NAME, LOGGERNAME
 
-_TOP_LEVEL = ''  # Indicates facts not contained by rules
+_TOP_LEVEL = ""  # Indicates facts not contained by rules
 
 
 class FactLookup:
-    '''
+    """
     Establishes a policy for looking up a fact based on the given name.
 
     To wit, the first fact with a given name is the one that is used
@@ -41,7 +45,8 @@ class FactLookup:
     their own facts with the same name.  FactLookup ensures that
     'publish_1' and 'publish_2' will both use the evaluated fact from
     the top-level 'facts' table.
-    '''
+    """
+
     def __init__(self, fact_names, rules_cfg):
         # For the above configuration, the 'self.facts' attribute is a dictionary of the form:
         # {
@@ -56,7 +61,9 @@ class FactLookup:
             for fact_name in rule_cfg.get("facts", []):
                 self.facts.setdefault(fact_name, []).append(rule_name)
 
-        logging.getLogger().debug(f"Registered the following facts:\n{self.facts}")
+        self.logger = structlog.getLogger(LOGGERNAME)
+        self.logger = self.logger.bind(module=__name__.split(".")[-1], channel=DELOGGER_CHANNEL_NAME)
+        self.logger.debug(f"Registered the following facts:\n{self.facts}")
 
     def sorted_rules(self, rules_cfg):
         """
@@ -80,11 +87,11 @@ class FactLookup:
                         dependencies[name].add(rule_for_fact)
 
             ordered_dependencies = toposort_flatten(dependencies)
-        except Exception:
-            logging.getLogger().exception("Unexpected error!")
+        except Exception:  # pragma: no cover
+            self.logger.exception("Unexpected error!")
             raise
 
-        logging.getLogger().debug(f"Calculated the following order for evaluating rules:\n{ordered_dependencies}")
+        self.logger.debug(f"Calculated the following order for evaluating rules:\n{ordered_dependencies}")
         return [initial_rules[rule] for rule in ordered_dependencies]
 
     def rule_for(self, fact_name):

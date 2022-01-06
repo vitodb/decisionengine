@@ -2,21 +2,20 @@
   sources: {
     source1: {
       module: "decisionengine.framework.tests.SourceNOP",
-      name: "SourceNOP",
       parameters: {},
       schedule: 1,
-     }
-   },
-
-   transforms: {
-     transform1: {
-       module: "decisionengine.framework.tests.TransformNOP",
-       name : "TransformNOP",
-       parameters: {},
-       schedule: 1
-     }
-   },
-
-  logicengines: {},
-  publishers: {}
+    },
+  },
+  transforms: {
+    transform1: {
+      module: "decisionengine.framework.tests.TransformNOP",
+      parameters: {},
+    },
+  },
+  publishers: {
+    publisher1: {
+      module: "decisionengine.framework.tests.PublisherNOP",
+      parameters: {},
+    },
+  },
 }

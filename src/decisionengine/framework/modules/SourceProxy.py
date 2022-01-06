@@ -1,90 +1,52 @@
+# SPDX-FileCopyrightText: 2017 Fermi Research Alliance, LLC
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Fill in data from another channel data block
 """
-import logging
-import pprint
 import time
 
-import pandas as pd
+from typing import Any
 
 import decisionengine.framework.dataspace.datablock as datablock
 import decisionengine.framework.dataspace.dataspace as dataspace
+
 from decisionengine.framework.modules import Source
+from decisionengine.framework.modules.Source import Parameter
+from decisionengine.framework.modules.translate_product_name import translate_all
 
-RETRIES = 10
-RETRY_TO = 60
-PRODUCES = ['Job_Limits']
-must_have = ('channel_name', 'Dataproducts')
+MAX_ATTEMPTS = 10
+RETRY_INTERVAL = 60
+must_have = ("source_channel", "Dataproducts")
 
 
+@Source.supports_config(
+    Parameter("source_channel", type=str, comment="Channel from which to retrieve data products."),
+    Parameter("Dataproducts", type=list, comment="List of data products to retrieve."),
+    Parameter("max_attempts", default=MAX_ATTEMPTS, comment="Number of attempts allowed to fetch products."),
+    Parameter("retry_interval", default=RETRY_INTERVAL, comment="Number of seconds to wait between retries."),
+)
 class SourceProxy(Source.Source):
-    """
-    Source Proxy
-    Channel configuration using source proxy
-    must have in parameters 'channel_name', defining foreign channel name and
-    'Dataproducts', defining foreign (and optionally local) data keys.
-    See consumes() doc.
-    Example of source proxy configuration:
-        "AWSJobLimits" : {
-        "module" : "modules.source_proxy",
-        "name"   : "SourceProxy",
-        "parameters": {"channel_name": "channel_aws_config_data",
-                       "Dataproducts":[("aws_instance_limits", "Job_Limits")],
-                       "retries": 3,
-                       "retry_timeout": 20,
-                      },
-        "schedule": 360,
-    },
+    # We do not want anybody to inherit from SourceProxy.  The PyPI
+    # 'final-class' package can also be used to prevent such
+    # inheritance.
+    def __init_subclass__(cls):
+        raise RuntimeError("Cannot inherit from SourceProxy.")
 
-    """
+    def __init__(self, config):
+        super().__init__(config)
 
-    must_have = ('channel_name', 'Dataproducts')
+        if not set(must_have).issubset(set(config.keys())):
+            raise RuntimeError(f"SourceProxy misconfigured. Must have {must_have} defined")
+        self.source_channel = config["source_channel"]
+        self.data_keys = translate_all(config["Dataproducts"])
+        self.max_attempts = config.get("max_attempts", MAX_ATTEMPTS)
+        self.retry_interval = config.get("retry_interval", RETRY_INTERVAL)
 
-    def __init__(self, *args, **kwargs):
-        if not set(must_have).issubset(set(args[0].keys())):
-            raise RuntimeError(
-                'SourceProxy misconfigured. Must have {} defined'.format(must_have))
-        self.source_channel = args[0]['channel_name']
-        self.data_keys = args[0]['Dataproducts']
-        self.retries = args[0].get('retries', RETRIES)
-        self.retry_to = args[0].get('retry_timeout', RETRY_TO)
-        self.logger = logging.getLogger()
+        self._produces = {new_name: Any for new_name in self.data_keys.values()}
 
     def post_create(self, global_config):
         self.dataspace = dataspace.DataSpace(global_config)
-
-    def consumes(self):
-        """
-        Assumes that self.data_keys has the following structure:
-          is a list of tuples or singletons:
-          [
-          (data_product_name, data_product_name_translation),
-          ....
-          ]
-          or
-          [
-          data_product_name,
-          ....
-          ]
-        """
-        # isinstance(x, tuple) is used by python based config file
-        # isinstance(x, list) is used by JSON based config file
-        return list(map(lambda x: x[0] if (isinstance(x, tuple) or isinstance(x, list)) else x, self.data_keys))
-
-    def produces(self):
-        """
-        Assumes that self.data_keys has the following structure
-          data_keys[key1] = (data_product_name, data_product_name_translation)
-          ....
-          or
-
-          data_keys[key1] = data_product_name
-          ....
-        """
-        # isinstance(x, tuple) is used by python based config file
-        # isinstance(x, list) is used by JSON based config file
-        return list(map(lambda x: x[1] if (isinstance(x, tuple) or isinstance(x, list)) else x, self.data_keys))
-
 
     def _get_data(self, data_block, key):
         while True:
@@ -103,110 +65,47 @@ class SourceProxy(Source.Source):
         Overrides Source class method
         """
         data_block = None
-        for _ in range(self.retries):
+        for _ in range(self.max_attempts):
             try:
                 tm = self.dataspace.get_taskmanager(self.source_channel)
-                self.logger.debug('task manager %s', tm)
-                if tm['taskmanager_id']:
+                self.logger.debug("task manager %s", tm)
+                if tm["taskmanager_id"]:
                     # get last datablock
-                    data_block = datablock.DataBlock(self.dataspace,
-                                                     self.source_channel,
-                                                     taskmanager_id=tm['taskmanager_id'],
-                                                     sequence_id=tm['sequence_id'])
-                    self.logger.debug('data block %s', data_block)
+                    data_block = datablock.DataBlock(
+                        self.dataspace,
+                        self.source_channel,
+                        taskmanager_id=tm["taskmanager_id"],
+                        sequence_id=tm["sequence_id"],
+                    )
+                    self.logger.debug("data block %s", data_block)
                     if data_block and data_block.generation_id:
                         self.logger.debug("DATABLOCK %s", data_block)
                         # This is a valid datablock
                         break
             except Exception as detail:
-                self.logger.error(
-                    'Error getting datablock for %s %s', self.source_channel, detail)
+                self.logger.error("Error getting datablock for %s %s", self.source_channel, detail)
 
-            time.sleep(self.retry_to)
+            time.sleep(self.retry_interval)
 
         if not data_block:
-            raise RuntimeError('Could not get data.')
+            raise RuntimeError("Could not get data.")
 
         rc = {}
         filled_keys = []
-        for _ in range(self.retries):
+        for _ in range(self.max_attempts):
             if len(filled_keys) != len(self.data_keys):
-                for k in self.data_keys:
-                    if isinstance(k, tuple) or isinstance(k, list):
-                        k_in = k[0]
-                        k_out = k[1]
-                    else:
-                        k_in = k
-                        k_out = k
+                for k_in, k_out in self.data_keys.items():
                     if k_in not in filled_keys:
                         try:
-                            rc[k_out] = pd.DataFrame(
-                                self._get_data(data_block, k_in))
-                            filled_keys.append(k)
+                            rc[k_out] = self._get_data(data_block, k_in)
+                            filled_keys.append(k_in)
                         except KeyError as ke:
                             self.logger.debug("KEYERROR %s", ke)
             if len(filled_keys) == len(self.data_keys):
                 break
             # expected data is not ready yet
-            time.sleep(self.retry_to)
+            time.sleep(self.retry_interval)
 
         if len(filled_keys) != len(self.data_keys):
-            raise RuntimeError('Could not get all data. Expected {} Filled {}'.format(
-                self.data_keys, filled_keys))
+            raise RuntimeError(f"Could not get all data. Expected {self.data_keys} Filled {filled_keys}")
         return rc
-
-
-def module_config_template():
-    """
-    print a template for this module configuration data
-    """
-
-    d = {
-        "source_proxy1": {
-            "module": "modules.source_proxy",
-            "name": "SourceProxy",
-            "parameters": {
-                "channel_name": "source_channel_name",
-                "Dataproducts": "list of data keys to retrieve from source channel data",
-                "retries": "<number of retries to acquire data>",
-                "retry_timeout": "<retry timeout>"
-            },
-            "schedule": 60 * 60,
-        }
-    }
-
-    print("Entry in channel cofiguration")
-    pprint.pprint(d)
-
-
-def module_config_info():
-    """
-    print this module configuration information
-    """
-    print("produces: available dynamically based on configuration")
-    module_config_template()
-
-
-def main():
-    """
-    Call this a a test unit or use as CLI of this module
-    """
-    import argparse
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('--configtemplate',
-                        action='store_true',
-                        help='prints the expected module configuration')
-
-    parser.add_argument('--configinfo',
-                        action='store_true',
-                        help='prints config template along with produces and consumes info')
-    args = parser.parse_args()
-    if args.configtemplate:
-        module_config_template()
-    elif args.configinfo:
-        module_config_info()
-
-
-if __name__ == "__main__":
-    main()

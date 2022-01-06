@@ -1,17 +1,26 @@
+# SPDX-FileCopyrightText: 2017 Fermi Research Alliance, LLC
+# SPDX-License-Identifier: Apache-2.0
+
+import structlog
+
 from decisionengine.framework.logicengine.FactLookup import FactLookup
-import logging
+from decisionengine.framework.modules.logging_configDict import DELOGGER_CHANNEL_NAME, LOGGERNAME
+
 
 class RuleEngine:
-    '''
+    """
     Engine responsible for evaluating logic-engine rules.
 
     This class is responsible for (a) forming a sorted set of rules
     that supports dependencies between them, and (b) evaluating the
     rules according to a specified fact-lookup policy.
-    '''
+    """
+
     def __init__(self, fact_names, rules_cfg):
         self.fact_lookup = FactLookup(fact_names, rules_cfg)
         self.rules = self.fact_lookup.sorted_rules(rules_cfg)
+        self.logger = structlog.getLogger(LOGGERNAME)
+        self.logger = self.logger.bind(module=__name__.split(".")[-1], channel=DELOGGER_CHANNEL_NAME)
 
     def execute(self, evaluated_facts):
         """
@@ -38,7 +47,7 @@ class RuleEngine:
                     new_facts[rule.name] = new_facts_for_rule
                     # First instance of a fact with a given name receives precedence
                     facts = {**new_facts_for_rule, **facts}
-        except Exception:
-            logging.getLogger.exception("Unexpected error!")
+        except Exception:  # pragma: no cover
+            self.logger.exception("Unexpected error!")
             raise
         return actions, new_facts

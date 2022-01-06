@@ -1,3 +1,6 @@
+.. SPDX-FileCopyrightText: 2017 Fermi Research Alliance, LLC
+.. SPDX-License-Identifier: Apache-2.0
+
 Decisionengine CI with Jenkins pipeline
 =======================================
 
@@ -79,5 +82,3 @@ The nightly CI build for Decisionengine framework uses this `Jenkins project <ht
 |
 
 .. image:: jenkins_pic/DE_nightly_ci_build_schedule_cfg.png
-
-

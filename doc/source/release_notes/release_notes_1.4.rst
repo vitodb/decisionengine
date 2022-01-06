@@ -1,9 +1,12 @@
+.. SPDX-FileCopyrightText: 2017 Fermi Research Alliance, LLC
+.. SPDX-License-Identifier: Apache-2.0
+
 Release 1.4.1
 -------------
 
 In this release:
 
-* Bug fixes to 1.4.0 release 
+* Bug fixes to 1.4.0 release
 
 Issues fixed in this release
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

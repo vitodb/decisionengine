@@ -1,15 +1,18 @@
+# SPDX-FileCopyrightText: 2017 Fermi Research Alliance, LLC
+# SPDX-License-Identifier: Apache-2.0
+
 ---
 name: Test in EL7 container
 
 on:
+  push:
+    branches:
+      - "**" # matches every branch
+      - "!gh-pages" # excludes gh-pages branch
   pull_request:
     branches:
       - master
-  push:
-    branches:
-      - '**'          # matches every branch
-      - '!gh-pages'   # excludes gh-pages branch
-
+      - 1.7
 jobs:
   pytest:
     runs-on: ubuntu-latest

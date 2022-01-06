@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2017 Fermi Research Alliance, LLC
+# SPDX-License-Identifier: Apache-2.0
+
 """
 A stand-alone script purges data in database older than specified
 in configuration. Configuration file has to have this bit added:
@@ -14,17 +18,19 @@ import pwd
 import sys
 
 import decisionengine.framework.config.policies as policies
-import decisionengine.framework.dataspace.dataspace as dataspace
-from decisionengine.framework.config.ValidConfig import ValidConfig
 
-def main():
+from decisionengine.framework.config.ValidConfig import ValidConfig
+from decisionengine.framework.dataspace.maintain import Reaper
+
+
+def main():  # pragma: no cover
     username = pwd.getpwuid(os.getuid()).pw_name
-    if username not in ['root', 'decisionengine']:
+    if username not in ["root", "decisionengine"]:
         sys.exit(f"User '{username}' is not allowed to run this script.")
 
     config_file = policies.global_config_file()
     global_config = ValidConfig(config_file)
-    reaper = dataspace.Reaper(global_config)
+    reaper = Reaper(global_config)
     reaper.reap()
 
 
