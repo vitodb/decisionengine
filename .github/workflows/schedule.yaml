@@ -11,9 +11,9 @@ on:
         description: 'branch ref'
         required: true
         default: 'master'
-      id:
-        description: 'run identifier'
-        required: false
+      timestamp:
+        description: 'timestamp identifier'
+        required: true
       branch:
         description: 'branch name'
         default: 'master'
@@ -38,9 +38,6 @@ jobs:
       - name: Archive rpm
         uses: actions/upload-artifact@v2
         with:
-          name: rpms-${{github.event.inputs.branch}}
+          name: rpms-${{github.event.inputs.branch}}-${{github.event.inputs.timestamp}}
           path: dist/*.rpm
           if-no-files-found: error
-
-      - name: ${{github.event.inputs.id}}-${{github.event.inputs.branch}}
-        run: echo run identifier ${{ inputs.id }} on branch ${{github.event.inputs.branch}}
