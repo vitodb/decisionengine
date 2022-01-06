@@ -1,9 +1,9 @@
 ---
 name: schedule RPM builds
 on:
-  schedule:
-    # * is a special character in YAML so you have to quote this string
-    - cron:  '55 20 * * *'
+  #schedule:
+  #  # * is a special character in YAML so you have to quote this string
+  #  - cron:  '55 20 * * *'
   
   workflow_dispatch:
     inputs:
@@ -11,6 +11,9 @@ on:
         description: 'branch ref'
         required: true
         default: 'master'
+      id:
+        description: 'run identifier'
+        required: false
 
 jobs:
   rpmbuild_el7:
@@ -21,7 +24,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-          ref: master
+          ref: ${{ref}}
       - name: Run the build in a container (SL7/HEPCloud-CI)
         uses: ./.github/actions/python-command-in-sl7-container
         with:
@@ -31,7 +34,9 @@ jobs:
       - name: Archive rpm
         uses: actions/upload-artifact@v2
         with:
-          name: rpms-master
+          name: rpms-${{github.event.ref}}
           path: dist/*.rpm
           if-no-files-found: error
- 
+
+      - name: ${{github.event.inputs.id}}
+        run: echo run identifier ${{ inputs.id }} 
