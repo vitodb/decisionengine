@@ -29,6 +29,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{github.event.inputs.branch}}
+
       - name: Run the build in a container (SL7/HEPCloud-CI)
         uses: ./.github/actions/python-command-in-sl7-container
         with:
