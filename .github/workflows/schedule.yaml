@@ -45,10 +45,19 @@ jobs:
           name: rpms-DE-${{github.event.inputs.branch}}-${{github.event.inputs.timestamp}}
           path: dist/*.rpm
           if-no-files-found: error
+
+      - name: print Name Variables
+        run: |
+          echo "ref: ${GITHUB_REF}"
+          echo "ref: ${GITHUB_REF##/*}-draft"
+          echo "upload_url ${{ steps.create_release.outputs.upload_url }}"
+          pwd
+          ls dist
           
       - name: Upload RPMs
         run: |
           set -x
+          hub release delete "${GITHUB_REF##/*}-draft"
           assets=()
           for asset in ./dist/*.rpm; do
             assets+=("-a" "$asset")
@@ -56,12 +65,6 @@ jobs:
           hub release create "${assets[@]}" -m "${GITHUB_REF##/*}-draft" "${GITHUB_REF##/*}-draft"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: print Name Variables
-        run: |
-          echo "upload_url ${{ steps.create_release.outputs.upload_url }}"
-          pwd
-          ls dist
           
 #      - uses: dev-drprasad/delete-tag-and-release@v0.2.0
 #        with:
