@@ -63,7 +63,7 @@ jobs:
           for asset in ./dist/*.rpm; do
             assets+=("-a" "$asset")
           done
-          hub release create -p "${assets[@]}" -m "${{github.event.inputs.branch}}-draft" "${{github.event.inputs.branch}}-draft"
+          hub release create -p "${assets[@]}" -m "${GITHUB_REF##*/}${{github.event.inputs.branch}}-draft" "${GITHUB_REF##*/}${{github.event.inputs.branch}}-draft"
           echo "hub release exit status: ${?}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
