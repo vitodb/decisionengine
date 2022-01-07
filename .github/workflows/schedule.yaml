@@ -51,19 +51,24 @@ jobs:
           echo "ref: ${GITHUB_REF}"
           echo "branch: ${{github.event.inputs.branch}}"
           echo "ref: draft-${GITHUB_REF##*/}${{github.event.inputs.branch}}"
-          echo "ref: draft-${{github.event.inputs.branch}:-${GITHUB_REF##*/}}"
+          myREF_tmp="${{github.event.inputs.branch}}"
+          echo "ref: draft-${myREF_tmp:-${GITHUB_REF##*/}}"
           pwd
           ls dist
           
       - name: Upload RPMs
         run: |
           set -x
-          hub release delete "draft-${{github.event.inputs.branch}:-${GITHUB_REF##*/}}" || :
+          myREF_tmp="${{github.event.inputs.branch}}"
+          echo "ref: draft-${myREF_tmp:-${GITHUB_REF##*/}}"
+          hub release delete "draft-${myREF_tmp:-${GITHUB_REF##*/}}" || :
           assets=()
           for asset in ./dist/*.rpm; do
             assets+=("-a" "${asset}")
           done
-          hub release create -p "${assets[@]}" -m "RPMs for ${{github.event.inputs.branch}:-${GITHUB_REF##*/}} branch" "draft-${{github.event.inputs.branch}:-${GITHUB_REF##*/}}"
+          hub release create -p "${assets[@]}" \
+              -m "RPMs for ${myREF_tmp:-${GITHUB_REF##*/}} branch" \
+              "draft-${myREF_tmp:-${GITHUB_REF##*/}}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
