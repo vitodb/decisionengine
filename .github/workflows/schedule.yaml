@@ -45,7 +45,18 @@ jobs:
           name: rpms-DE-${{github.event.inputs.branch}}-${{github.event.inputs.timestamp}}
           path: dist/*.rpm
           if-no-files-found: error
-
+          
+      - name: Release RPMs
+        run: |
+          set -x
+          assets=()
+          for asset in ./dist/*.rpm; do
+            assets+=("-a" "$asset")
+          done
+          hub release create "${assets[@]}" -m "${GITHUB_REF/##*}-draft" "${GITHUB_REF/##*}-draft"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
       - uses: dev-drprasad/delete-tag-and-release@v0.2.0
         with:
           delete_release: true # default: false
@@ -78,5 +89,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/*.rpm
+          asset_path: dist/*.noarch.rpm
           asset_content_type: application/octet-stream
