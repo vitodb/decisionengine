@@ -1,5 +1,5 @@
 ---
-name: schedule RPM builds
+name: Publish RPMs
 on:
   #schedule:
   #  # * is a special character in YAML so you have to quote this string
@@ -16,7 +16,7 @@ on:
         default: 'master'
       timestamp:
         description: 'timestamp identifier'
-        required: true
+        required: false
       branch:
         description: 'branch name'
         default: 'master'
@@ -49,7 +49,7 @@ jobs:
       - name: print Name Variables
         run: |
           echo "ref: ${GITHUB_REF}"
-          echo "ref: ${GITHUB_REF##*/}-draft"
+          echo "ref: ${GITHUB_REF##*/}"
           echo "branch: ${{github.event.inputs.branch}}"
           echo "upload_url ${{ steps.create_release.outputs.upload_url }}"
           pwd
@@ -58,12 +58,12 @@ jobs:
       - name: Upload RPMs
         run: |
           set -x
-          hub release delete "${{github.event.inputs.branch}}-draft" || :
+          hub release delete "${{github.event.inputs.branch}}" || :
           assets=()
           for asset in ./dist/*.rpm; do
-            assets+=("-a" "$asset")
+            assets+=("-a" "${asset}#draft")
           done
-          hub release create -p "${assets[@]}" -m "${GITHUB_REF##*/}${{github.event.inputs.branch}}-draft" "${GITHUB_REF##*/}${{github.event.inputs.branch}}-draft"
+          hub release create -p "${assets[@]}" -m "${GITHUB_REF##*/}${{github.event.inputs.branch}}" "${GITHUB_REF##*/}${{github.event.inputs.branch}}"
           echo "hub release exit status: ${?}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
