@@ -46,35 +46,16 @@ jobs:
           path: dist/*.rpm
           if-no-files-found: error
           
-      - name: Release RPMs
+      - name: Upload RPMs
         run: |
           set -x
           assets=()
           for asset in ./dist/*.rpm; do
             assets+=("-a" "$asset")
           done
-          hub release create "${assets[@]}" -m "${GITHUB_REF/##*}-draft" "${GITHUB_REF/##*}-draft"
+          hub release create "${assets[@]}" -m "${GITHUB_REF##/*}-draft" "${GITHUB_REF##/*}-draft"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
-      - uses: dev-drprasad/delete-tag-and-release@v0.2.0
-        with:
-          delete_release: true # default: false
-          tag_name: refs/heads/master # tag name to delete
-          # repo: <owner>/<repoName> # target repo (optional). defaults to repo running this action
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: true
 
       - name: print Name Variables
         run: |
@@ -82,12 +63,31 @@ jobs:
           pwd
           ls dist
           
-      - name: Upload Release Asset
-        id: upload-release-asset 
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/*.noarch.rpm
-          asset_content_type: application/octet-stream
+#      - uses: dev-drprasad/delete-tag-and-release@v0.2.0
+#        with:
+#          delete_release: true # default: false
+#          tag_name: refs/heads/master # tag name to delete
+#          # repo: <owner>/<repoName> # target repo (optional). defaults to repo running this action
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  
+#      - name: Create Release
+#        id: create_release
+#        uses: actions/create-release@v1
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        with:
+#          tag_name: ${{ github.ref }}
+#          release_name: Release ${{ github.ref }}
+#          draft: false
+#          prerelease: true
+#          
+#      - name: Upload Release Asset
+#        id: upload-release-asset 
+#        uses: actions/upload-release-asset@v1
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        with:
+#          upload_url: ${{ steps.create_release.outputs.upload_url }}
+#          asset_path: dist/*.noarch.rpm
+#          asset_content_type: application/octet-stream
