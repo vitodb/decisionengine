@@ -49,21 +49,20 @@ jobs:
       - name: print Name Variables
         run: |
           echo "ref: ${GITHUB_REF}"
-          echo "ref: ${GITHUB_REF##*/}"
           echo "branch: ${{github.event.inputs.branch}}"
-          echo "upload_url ${{ steps.create_release.outputs.upload_url }}"
+          echo "ref: draft-${GITHUB_REF##*/}${{github.event.inputs.branch}}"
           pwd
           ls dist
           
       - name: Upload RPMs
         run: |
           set -x
-          hub release delete "${{github.event.inputs.branch}}" || :
+          hub release delete "draft-${{github.event.inputs.branch}}" || :
           assets=()
           for asset in ./dist/*.rpm; do
-            assets+=("-a" "${asset}#draft")
+            assets+=("-a" "${asset}")
           done
-          hub release create -p "${assets[@]}" -m "${GITHUB_REF##*/}${{github.event.inputs.branch}}" "${GITHUB_REF##*/}${{github.event.inputs.branch}}"
+          hub release create -p "${assets[@]}" -m "${GITHUB_REF##*/}${{github.event.inputs.branch}}" "draft-${GITHUB_REF##*/}${{github.event.inputs.branch}}"
           echo "hub release exit status: ${?}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
