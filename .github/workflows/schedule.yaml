@@ -57,7 +57,7 @@ jobs:
       - name: Upload RPMs
         run: |
           set -x
-          hub release delete "${GITHUB_REF##*/}-draft"
+          hub release delete "${GITHUB_REF##*/}-draft" || :
           assets=()
           for asset in ./dist/*.rpm; do
             assets+=("-a" "$asset")
