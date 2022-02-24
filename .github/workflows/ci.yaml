@@ -162,13 +162,14 @@ jobs:
           echo "timestamp=$(date +%Y%m%d-%H%M%S)" >> ${GITHUB_ENV}
           export my_branch_tmp=${{github.event.inputs.ref}}
           echo "mybranch=${my_branch_tmp:-${GITHUB_REF##*/}}" >> ${GITHUB_ENV}
+          echo "mybranchref=${my_branch_tmp:-${GITHUB_REF}}" >> ${GITHUB_ENV}
           cat ${GITHUB_ENV}
 
       - name: checkout code tree
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-          ref: ${{env.mybranch}}
+          ref: ${{env.mybranchref}}
 
       - name: Run the build in a container (SL7/HEPCloud-CI)
         uses: ./.github/actions/python-command-in-sl7-container
