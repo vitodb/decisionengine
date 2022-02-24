@@ -169,12 +169,12 @@ jobs:
       - name: make ref tag case 1
         id: mkreftag1
         if: ${{github.event.inputs.ref}} != ''
-        run: echo "::set-output name=reftag::${{github.event.inputs.ref}}
+        run: echo "::set-output name=reftag::${{github.event.inputs.ref}}"
 
       - name: make ref tag case 2
         id: mkreftag2
         if: ${{github.event.inputs.ref}} == ''
-        run: echo "::set-output name=reftag::${GITHUB_REF##*/}
+        run: echo "::set-output name=reftag::${GITHUB_REF##*/}"
 
       - name: checkout code tree
         uses: actions/checkout@v2
