@@ -180,7 +180,7 @@ jobs:
       - name: make ref tag case 3
         id: mkreftag3
         if: ${{github.event.inputs.ref}} == ''
-        run: echo "::set-output name=reftag::"$(awk -F"/" '{print $3}' <<< ${GITHUB_REF_NAME})
+        run: echo "::set-output name=reftag::"$(awk -F"/" '{print $3}' <<< ${GITHUB_REF})
 
       - name: check tags
         run: |
