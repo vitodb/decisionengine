@@ -181,6 +181,7 @@ jobs:
         run: |
           echo "GITHUB_REF: ${GITHUB_REF}"
           echo "GITHUB_BASE_REF: ${GITHUB_BASE_REF}"
+          echo "github.event.inputs.ref: #${{github.event.inputs.ref}}#{{github.event.inputs.ref}}#"
           echo "mkdatetag: ${{steps.mkdatetag.outputs.dtag}}"
           echo "mkreftag1: ${{steps.mkreftag1.outputs.reftag}}"
           echo "mkreftag2: ${{steps.mkreftag2.outputs.reftag}}"
