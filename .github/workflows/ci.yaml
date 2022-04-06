@@ -10,6 +10,7 @@ on:
       - "!gh-pages" # excludes gh-pages branch
   pull_request:
     branches:
+      - "**" # matches every branch
       - master
       - 1.7
   workflow_dispatch:
