@@ -97,16 +97,14 @@ class Reaper:
     def reap(self):
         """
         Actually spawn the query to delete the old records.
-        Lock the state as this task doesn't have a cancel option.
         """
-        with self.state.lock:
-            if self.state.should_stop():
-                return
-            self.logger.info("Reaper.reap() started.")
-            self.state.set(State.ACTIVE)
-            self.datasource.delete_data_older_than(self.retention_interval)
-            self.state.set(State.STEADY)
-            self.logger.info("Reaper.reap() completed.")
+        if self.state.should_stop():
+            return
+        self.logger.info("Reaper.reap() started.")
+        self.state.set(State.ACTIVE)
+        self.datasource.delete_data_older_than(self.retention_interval)
+        self.state.set(State.STEADY)
+        self.logger.info("Reaper.reap() completed.")
 
     def _reaper_loop(self, delay):
         """
@@ -116,11 +114,10 @@ class Reaper:
         between_runs = delay
         while not self.state.should_stop():
             try:
-                with self.state.lock:
-                    if not self.state.should_stop():
-                        # The start function will block until the state is changed from BOOT
-                        # If we are signaled to stop, don't override that state
-                        self.state.set(State.IDLE)
+                if not self.state.should_stop():
+                    # The start function will block until the state is changed from BOOT
+                    # If we are signaled to stop, don't override that state
+                    self.state.set(State.IDLE)
 
                 self.logger.debug(f"Reaper waiting {between_runs} seconds or for a stop.")
                 self.state.wait_until(STOPPING_CONDITIONS, timeout=between_runs)
@@ -160,13 +157,12 @@ class Reaper:
 
         try:
             # each invocation must be a new thread
-            with self.state.lock:
-                self.state.set(State.BOOT)
-                self.thread = threading.Thread(
-                    group=None, target=self._reaper_loop, args=(delay,), name="Reaper_loop_thread"
-                )
+            self.state.set(State.BOOT)
+            self.thread = threading.Thread(
+                group=None, target=self._reaper_loop, args=(delay,), name="Reaper_loop_thread"
+            )
 
-                self.thread.start()
+            self.thread.start()
         except Exception:  # pragma: no cover
             self.logger.exception("Reaper loop thread not started")
 
@@ -178,10 +174,9 @@ class Reaper:
         """
         if isinstance(self.thread, threading.Thread):
             if self.thread.is_alive():
-                with self.state.lock:
-                    if not self.state.should_stop():
-                        self.logger.debug("Sending reaper State.SHUTTINGDOWN signal")
-                        self.state.set(State.SHUTTINGDOWN)
+                if not self.state.should_stop():
+                    self.logger.debug("Sending reaper State.SHUTTINGDOWN signal")
+                    self.state.set(State.SHUTTINGDOWN)
                 if self.state.has_value(State.SHUTTINGDOWN):
                     self.state.wait_while(State.SHUTTINGDOWN)
                 self.logger.info(f"Reaper shutdown : {self.state.get()}.")

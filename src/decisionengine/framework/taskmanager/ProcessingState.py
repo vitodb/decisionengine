@@ -65,26 +65,14 @@ class ProcessingState:
         self.logger = structlog.getLogger(LOGGERNAME)
         self.logger = self.logger.bind(module=__name__.split(".")[-1], channel=DELOGGER_CHANNEL_NAME)
 
-    @property
-    def lock(self):
-        return self._lock
-
-    @lock.setter
-    def lock(self, value):
-        raise ValueError("You may not redefine the ProcessingState lock")
-
     def get(self):
         """
         This function is a minimally locking check to fetch the state.
         """
-        try:
-            value = None
-            with self._state.get_lock():
-                value = self._state.value
-            return State(value)
-        except Exception:  # pragma: no cover
-            self.logger.exception("Unexpected error!")
-            raise
+        value = None
+        with self._state.get_lock():
+            value = self._state.value
+        return State(value)
 
     def set(self, state):
         """
@@ -94,20 +82,14 @@ class ProcessingState:
         This function can be blocked using the `.lock` to force state
         sync between threads if need be.
         """
+        if not isinstance(state, State):
+            raise RuntimeError("Supplied value is not a State variable.")
+
         _id = f"{multiprocessing.current_process().name}-{threading.current_thread().name}"
-        try:
-            if not isinstance(state, State):
-                raise RuntimeError("Supplied value is not a State variable.")
-            with self.lock:  # don't hold other locks if we can't get this one
-                self.logger.debug(f"Got ProcessingState.set (write) lock in {_id}")
-                with self._cv, self._state.get_lock():
-                    self.logger.debug(f"Got ProcessingState.set (read) lock in {_id}")
-                    self.logger.debug(f"ProcessingState.set to {state} in {_id}")
-                    self._state.value = state.value
-                    self._cv.notify_all()  # alert everyone looking for state change
-        except Exception:
-            self.logger.exception("Unexpected error!")
-            raise
+        with self._cv, self._state.get_lock():
+            self.logger.debug(f"Setting ProcessingState to {state} in {_id}")
+            self._state.value = state.value
+            self._cv.notify_all()  # alert everyone looking for state change
 
     def get_state_value(self):
         with self._state.get_lock():

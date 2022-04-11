@@ -37,16 +37,16 @@ def test_wrong_value_on_creation():
         ProcessingState(1.3)
 
 
-def test_has_lock_and_can_context():
-    state = ProcessingState()
-    with state.lock:
-        return True
+# def test_has_lock_and_can_context():
+#     state = ProcessingState()
+#     with state.lock:
+#         return True
 
 
-def test_cannot_redefine_lock():
-    state = ProcessingState()
-    with pytest.raises(ValueError):
-        state.lock = "bad_string"
+# def test_cannot_redefine_lock():
+#     state = ProcessingState()
+#     with pytest.raises(ValueError):
+#         state.lock = "bad_string"
 
 
 def test_wrong_value_on_assignment():

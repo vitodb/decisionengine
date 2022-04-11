@@ -183,12 +183,12 @@ class TaskManager:
 
         try:
             self.decision_cycle()
-            with self.state.lock:
-                if not self.state.should_stop() and not self.state.has_value(State.STEADY):
-                    # If we are signaled to stop, don't override that state
-                    # otherwise the last decision_cycle completed without error
-                    self.state.set(State.STEADY)
-                    CHANNEL_STATE_GAUGE.labels(self.name).set(self.get_state_value())
+            # with self.state.lock:
+            if not self.state.should_stop() and not self.state.has_value(State.STEADY):
+                # If we are signaled to stop, don't override that state
+                # otherwise the last decision_cycle completed without error
+                self.state.set(State.STEADY)
+                CHANNEL_STATE_GAUGE.labels(self.name).set(self.get_state_value())
         except Exception:  # pragma: no cover
             self.logger.exception("Exception in the task manager main loop")
             self.logger.error("Error occured. Task manager %s exits with state %s", self.id, self.get_state_name())
