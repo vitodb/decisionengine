@@ -91,7 +91,7 @@ jobs:
           pytest --cov-report term --cov-report xml --cov=decisionengine --no-cov-on-fail
           
       - name: Archive unit test logs
-        if: always()
+        if: failure() && !cancelled()
         uses: actions/upload-artifact@v2
         with:
           name: log_unit_test_Python_${{ matrix.python-version }}
