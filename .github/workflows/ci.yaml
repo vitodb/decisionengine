@@ -88,7 +88,7 @@ jobs:
           COVERAGE_PROCESS_START: ${{ github.workspace }}/.coveragerc
         shell: 'script -q -e -c "bash --noprofile --norc -eo pipefail {0}"'
         run: |
-          pytest --cov-report term --cov-report xml --cov=decisionengine --no-cov-on-fail src/decisionengine/framework/dataspace/tests
+          pytest --cov-report term --cov-report xml --cov=decisionengine --no-cov-on-fail
 
       - name: Archive unit test logs
         if: failure() && !cancelled()
